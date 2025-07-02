@@ -1,0 +1,1 @@
+# Smart Quiz API Backend

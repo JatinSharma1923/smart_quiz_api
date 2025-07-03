@@ -152,6 +152,7 @@ def generate_quiz_from_url(url: str, quiz_type: QuizType = "MCQ") -> Dict:
 
         set_cached_quiz(url, quiz_type, result)
         logger.info(f"[Quiz Generated] Topic: {topic}, Difficulty: {difficulty}, Length: {len(snippet)}")
+        logger.debug(f"[Quiz Metadata] Topic: {topic}, Difficulty: {difficulty}, Snippet Size: {len(snippet)}")
         return result
     except Exception as e:
         logger.error(f"Quiz generation from URL failed: {str(e)}")

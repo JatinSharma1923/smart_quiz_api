@@ -15,6 +15,7 @@ def root():
 
 
 '''
+from smart_quiz_api.services import scrape_and_generate_quiz
 
 from fastapi import FastAPI, Request, Depends, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

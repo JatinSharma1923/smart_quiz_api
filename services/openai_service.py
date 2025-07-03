@@ -15,18 +15,18 @@ def generate_quiz(topic, question_type="mcq", difficulty="medium"):
 
 '''
 import os
-import openai
 import logging
-import redis
-from typing import Dict, Literal, Optional, List
+import hashlib
+from typing import Dict, Optional, List
 from datetime import datetime
-from tenacity import retry, wait_random, stop_after_attempt
 from dotenv import load_dotenv
 from functools import lru_cache
-import hashlib
-from fastapi import APIRouter, HTTPException, Query  # 🔗 Linking to router
+import redis
+from tenacity import retry, wait_random, stop_after_attempt
+import openai
+from typing import Literal
 
-# === Load .env and OpenAI key ===
+# === ENV and Setup ===
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -35,7 +35,30 @@ logger = logging.getLogger(__name__)
 
 QuizType = Literal["MCQ", "TF", "IMAGE"]
 
-# === Caching with Redis (for cost+speed) ===
+# === Prompt Template Loader ===
+@lru_cache(maxsize=10)
+def load_prompt_template(quiz_type: QuizType) -> str:
+    try:
+        path = f"smart_quiz_api/templates/{quiz_type.lower()}.txt"
+        with open(path, "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        logger.error(f"Prompt template for '{quiz_type}' not found at {path}.")
+        raise Exception(f"Prompt template for '{quiz_type}' not found.")
+    except Exception as e:
+        logger.error(f"Unexpected error loading prompt template: {str(e)}")
+        raise
+
+# === Prompt Renderer ===
+def render_prompt(topic: str, difficulty: str, quiz_type: QuizType) -> str:
+    try:
+        template = load_prompt_template(quiz_type)
+        return template.replace("{topic}", topic).replace("{difficulty}", difficulty)
+    except Exception as e:
+        logger.error(f"Error rendering prompt: {str(e)}")
+        raise
+
+# === Redis Caching Utilities ===
 def cache_key(prompt: str) -> str:
     return f"quiz_cache:{hashlib.sha256(prompt.encode()).hexdigest()}"
 
@@ -52,44 +75,12 @@ def set_cached_response(prompt: str, response: str, ttl: int = 3600):
     redis_client.setex(key, ttl, response)
     logger.info(f"[Cache Store] {key}")
 
-# === PROMPT TEMPLATE LOADING (Prompt Template Selector - plugin ready) ===
-@lru_cache(maxsize=10)
-def load_prompt_template(quiz_type: QuizType) -> str:
-    try:
-        path = f"smart_quiz_api/templates/{quiz_type.lower()}.txt"
-        with open(path, "r", encoding="utf-8") as file:
-            return file.read()
-    except FileNotFoundError:
-        logger.error(f"Prompt template for '{quiz_type}' not found at {path}.")
-        raise Exception(f"Prompt template for '{quiz_type}' not found.")
-    except Exception as e:
-        logger.error(f"Unexpected error loading prompt template: {str(e)}")
-        raise
-
-# === PROMPT GENERATOR ===
-def render_prompt(topic: str, difficulty: str, quiz_type: QuizType) -> str:
-    try:
-        template = load_prompt_template(quiz_type)
-        return template.replace("{topic}", topic).replace("{difficulty}", difficulty)
-    except Exception as e:
-        logger.error(f"Error rendering prompt: {str(e)}")
-        raise
-
-# === Adaptive Prompt Tuning (based on user level & history) ===
-def auto_adjust_difficulty(user_accuracy: float) -> str:
-    if user_accuracy >= 80:
-        return "hard"
-    elif user_accuracy >= 50:
-        return "medium"
-    return "easy"
-
-# === CALL OPENAI WITH RETRIES ===
+# === OpenAI Call with Retry ===
 @retry(stop=stop_after_attempt(3), wait=wait_random(min=1, max=2))
 def call_openai(prompt: str, model: str = "gpt-3.5-turbo") -> str:
     cached = get_cached_response(prompt)
     if cached:
         return cached
-
     try:
         response = openai.ChatCompletion.create(
             model=model,
@@ -104,48 +95,15 @@ def call_openai(prompt: str, model: str = "gpt-3.5-turbo") -> str:
         logger.error(f"OpenAI call failed: {str(e)}")
         raise
 
-# === PARSER: STRUCTURE AI RESPONSE (2 formats) ===
-def parse_mcq_response(ai_output: str) -> Dict:
-    try:
-        lines = ai_output.split("\n")
-        data = {"options": {}}
-        for line in lines:
-            if line.startswith("Q:"):
-                data["question"] = line[2:].strip()
-            elif line.startswith(tuple("ABCD")):
-                data["options"][line[0]] = line[3:].strip()
-            elif "Answer:" in line:
-                data["correct_option"] = line.split(":", 1)[1].strip()
-            elif "Explanation:" in line:
-                data["explanation"] = line.split(":", 1)[1].strip()
-        data["confidence"] = 0.95
-        data["generated_at"] = datetime.utcnow().isoformat()
-        return data
-    except Exception as e:
-        logger.error(f"Failed to parse MCQ response: {str(e)}")
-        raise
+# === Topic Classifier ===
+def classify_topic(content: str) -> str:
+    prompt = f"Classify the following content into a topic: {content[:1000]}"
+    return call_openai(prompt)
 
-# === MAIN ENTRY TO GENERATE QUIZ ===
-def generate_quiz(topic: str, quiz_type: QuizType = "MCQ", difficulty: str = "medium") -> Dict:
-    logger.info(f"🎯 Generating quiz: [{quiz_type}] '{topic}' at {difficulty} level")
-    try:
-        prompt = render_prompt(topic, difficulty, quiz_type)
-        ai_output = call_openai(prompt)
-        if quiz_type == "MCQ":
-            return parse_mcq_response(ai_output)
-        return {"raw_response": ai_output}
-    except Exception as e:
-        logger.error(f"Quiz generation failed: {str(e)}")
-        raise
-
-# === Smart Explanation Simplifier ===
-def simplify_explanation(explanation: str) -> str:
-    try:
-        prompt = f"Explain this like I'm 10: {explanation}"
-        return call_openai(prompt)
-    except Exception as e:
-        logger.error(f"Simplification failed: {str(e)}")
-        raise
+# === Explanation Generator ===
+def generate_explanation(quiz_text: str) -> str:
+    prompt = f"Explain each correct answer in the following quiz in 1-2 beginner-friendly sentences:\n\n{quiz_text}"
+    return call_openai(prompt)
 
 # === AI Metadata Generator - Tag Generator ===
 def generate_tags(question: str) -> List[str]:
@@ -174,7 +132,7 @@ def grade_answer(user_answer: str, correct_option: str, explanation: Optional[st
         "feedback": ai_feedback
     }
 
-# === Confidence Calibration/Evaluator ===
+# === Confidence Evaluator ===
 def estimate_confidence(quiz_block: str) -> float:
     prompt = f"Rate the confidence in this quiz block on a scale from 0.0 to 1.0:\n{quiz_block}"
     try:
@@ -183,20 +141,4 @@ def estimate_confidence(quiz_block: str) -> float:
     except Exception as e:
         logger.error(f"Confidence estimation failed: {str(e)}")
         return 0.8
-
-# === Router Snippet For Future Linking ===
-router = APIRouter()
-
-@router.get("/quiz")
-def quiz_generator(
-    topic: str = Query(...),
-    difficulty: str = Query("medium"),
-    quiz_type: QuizType = Query("MCQ")
-):
-    try:
-        quiz = generate_quiz(topic=topic, difficulty=difficulty, quiz_type=quiz_type)
-        return {"status": "success", "data": quiz}
-    except Exception as e:
-        logger.error(f"Quiz generation endpoint error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 '''

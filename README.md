@@ -32,44 +32,44 @@ The **Smart Quiz API** is a FastAPI-powered backend for generating, managing, an
 ## ⚙️ Setup Guide
 
 ### 1. Clone the repo
-git clone https://github.com/JatinSharma1923/smart_quiz_api.git
-cd smart_quiz_api
+  git clone https://github.com/JatinSharma1923/smart_quiz_api.git
+  cd smart_quiz_api
 
 ###2. Set up a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+  python -m venv venv
+  source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 ###3. Install dependencies
-pip install -r requirements.txt
+  pip install -r requirements.txt
 
 ###4. Create .env file
-Update values for:
-cp .env.example .env
-OPENAI_API_KEY
-FIREBASE_PROJECT_ID
-DATABASE_URL
+  Update values for:
+  cp .env.example .env
+  OPENAI_API_KEY
+  FIREBASE_PROJECT_ID
+  DATABASE_URL
 
 ###5. Run the API
-uvicorn main:app --reload
+  uvicorn main:app --reload
 
 📚 Folder Structure
-smart_quiz_api/
-├── routers/           # FastAPI route controllers
-├── services/          # Business logic (OpenAI, scraping, quiz logic)
-├── templates/         # Prompt templates
-├── auth/              # Firebase Auth integration
-├── models.py          # SQLAlchemy models
-├── schemas.py         # Pydantic schemas
-├── database.py        # DB session & setup
-├── main.py            # FastAPI app entry point
-└── .env.example       # Sample config file
+  smart_quiz_api/
+  ├── routers/           # FastAPI route controllers
+  ├── services/          # Business logic (OpenAI, scraping, quiz logic)
+  ├── templates/         # Prompt templates
+  ├── auth/              # Firebase Auth integration
+  ├── models.py          # SQLAlchemy models
+  ├── schemas.py         # Pydantic schemas
+  ├── database.py        # DB session & setup
+  ├── main.py            # FastAPI app entry point
+  └── .env.example       # Sample config file
 
 
 
 📫 Contact
-Made by Jatin Sharma
-📬 Email: jatinsharma1923@gmail.com
-🌐 GitHub: @JatinSharma1923
+  Made by Jatin Sharma
+  📬 Email: jatinsharma1923@gmail.com
+  🌐 GitHub: @JatinSharma1923
 
 
 

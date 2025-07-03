@@ -1,16 +1,4 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
-
-class Quiz(Base):
-    __tablename__ = 'quizzes'
-    id = Column(Integer, primary_key=True)
-    question = Column(String)
-    answer = Column(String)
-    topic = Column(String)
-    difficulty = Column(String)
-'''
 
 from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, DateTime, Enum, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -258,4 +246,3 @@ class GradingTask(Base):
 
     quiz = relationship("Quiz", back_populates="grading_tasks")
 
-'''

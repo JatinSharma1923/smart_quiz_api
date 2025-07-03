@@ -12,7 +12,7 @@ class Quiz(Base):
     difficulty = Column(String)
 '''
 
-from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, DateTime, Enum
+from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, DateTime, Enum, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -42,6 +42,8 @@ class User(Base, TimestampMixin):
     answers = relationship("UserAnswer", back_populates="user")
     feedbacks = relationship("Feedback", back_populates="user")
     sessions = relationship("SessionLog", back_populates="user")
+    request_logs = relationship("RequestLog", back_populates="user")
+    websocket_sessions = relationship("WebSocketSession", back_populates="user")
 
 # Quiz model
 class Quiz(Base, TimestampMixin):
@@ -61,6 +63,7 @@ class Quiz(Base, TimestampMixin):
     user = relationship("User", back_populates="quizzes")
     questions = relationship("QuizQuestion", back_populates="quiz")
     feedbacks = relationship("Feedback", back_populates="quiz")
+    grading_tasks = relationship("GradingTask", back_populates="quiz")
 
 # QuizQuestion model
 class QuizQuestion(Base, TimestampMixin):
@@ -139,4 +142,120 @@ class SessionLog(Base):
     device_info = Column(String)
 
     user = relationship("User", back_populates="sessions")
+
+# API Key model
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    key = Column(String, primary_key=True)
+    owner = Column(String, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    is_active = Column(Boolean, default=True)
+    usage_count = Column(Integer, default=0)
+    rate_limit = Column(Integer)
+
+# Rate Limit Log
+class RateLimitLog(Base):
+    __tablename__ = "rate_limit_logs"
+
+    id = Column(Integer, primary_key=True)
+    ip_address = Column(String)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    api_key = Column(String, ForeignKey("api_keys.key"), nullable=True)
+    request_time = Column(DateTime, default=datetime.utcnow)
+
+# Request Log
+class RequestLog(Base):
+    __tablename__ = "request_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    path = Column(String)
+    method = Column(String)
+    status_code = Column(Integer)
+    duration_ms = Column(Float)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="request_logs")
+
+# Error Log
+class ErrorLog(Base):
+    __tablename__ = "error_logs"
+
+    id = Column(Integer, primary_key=True)
+    error_type = Column(String)
+    message = Column(Text)
+    stack_trace = Column(Text)
+    occurred_at = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+
+# Background Task Queue
+class BackgroundTaskQueue(Base):
+    __tablename__ = "background_tasks"
+
+    id = Column(Integer, primary_key=True)
+    task_name = Column(String)
+    payload = Column(Text)
+    status = Column(Enum("pending", "in_progress", "completed", "failed", name="task_status_enum"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+# WebSocket Session
+class WebSocketSession(Base):
+    __tablename__ = "websocket_sessions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    connection_time = Column(DateTime, default=datetime.utcnow)
+    disconnect_time = Column(DateTime)
+    client_ip = Column(String)
+
+    user = relationship("User", back_populates="websocket_sessions")
+
+# Prompt Template
+class PromptTemplate(Base):
+    __tablename__ = "prompt_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True)
+    context = Column(String)
+    template_text = Column(Text)
+    created_by = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# Prompt Cache
+class PromptCache(Base):
+    __tablename__ = "prompt_cache"
+
+    id = Column(Integer, primary_key=True)
+    prompt_hash = Column(String, unique=True)
+    response_text = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# Health Check Log
+class HealthCheckLog(Base):
+    __tablename__ = "health_check_logs"
+
+    id = Column(Integer, primary_key=True)
+    service = Column(String)
+    status = Column(Enum("healthy", "degraded", "down", name="health_status_enum"))
+    checked_at = Column(DateTime, default=datetime.utcnow)
+    response_time_ms = Column(Float)
+
+# Grading Task
+class GradingTask(Base):
+    __tablename__ = "grading_tasks"
+
+    id = Column(Integer, primary_key=True)
+    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
+    user_id = Column(String, ForeignKey("users.id"))
+    status = Column(Enum("pending", "in_progress", "completed", "error", name="grading_status_enum"))
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    error_message = Column(Text)
+
+    quiz = relationship("Quiz", back_populates="grading_tasks")
+
 '''

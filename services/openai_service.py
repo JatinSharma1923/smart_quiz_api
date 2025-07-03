@@ -31,22 +31,24 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_client = redis.Redis.from_url(REDIS_URL)
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 QuizType = Literal["MCQ", "TF", "IMAGE"]
 
 # === Prompt Template Loader ===
 @lru_cache(maxsize=10)
 def load_prompt_template(quiz_type: QuizType) -> str:
+    path = f"smart_quiz_api/templates/{quiz_type.lower()}.txt"
     try:
-        path = f"smart_quiz_api/templates/{quiz_type.lower()}.txt"
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
     except FileNotFoundError:
-        logger.error(f"Prompt template for '{quiz_type}' not found at {path}.")
+        logger.exception(f"Prompt template not found at: {path}")
         raise Exception(f"Prompt template for '{quiz_type}' not found.")
     except Exception as e:
-        logger.error(f"Unexpected error loading prompt template: {str(e)}")
+        logger.exception(f"Unexpected error loading prompt template: {e}")
         raise
 
 # === Prompt Renderer ===
@@ -55,7 +57,7 @@ def render_prompt(topic: str, difficulty: str, quiz_type: QuizType) -> str:
         template = load_prompt_template(quiz_type)
         return template.replace("{topic}", topic).replace("{difficulty}", difficulty)
     except Exception as e:
-        logger.error(f"Error rendering prompt: {str(e)}")
+        logger.exception(f"Error rendering prompt: {e}")
         raise
 
 # === Redis Caching Utilities ===
@@ -88,17 +90,21 @@ def call_openai(prompt: str, model: str = "gpt-3.5-turbo") -> str:
             max_tokens=700,
             temperature=0.7,
         )
-        output = response.choices[0].message.content.strip()
-        set_cached_response(prompt, output)
-        return output
+        result = response.choices[0].message.content.strip()
+        set_cached_response(prompt, result)
+        return result
     except Exception as e:
-        logger.error(f"OpenAI call failed: {str(e)}")
+        logger.exception("OpenAI call failed")
         raise
 
 # === Topic Classifier ===
 def classify_topic(content: str) -> str:
-    prompt = f"Classify the following content into a topic: {content[:1000]}"
-    return call_openai(prompt)
+    prompt = f"Classify the following content into a topic (e.g., Science, History, Tech, etc):\n\n{content[:1000]}"
+    try:
+        return call_openai(prompt)
+    except Exception as e:
+        logger.warning(f"Topic classification failed: {e}")
+        return "General Knowledge"
 
 # === Explanation Generator ===
 def generate_explanation(quiz_text: str) -> str:
@@ -112,7 +118,7 @@ def generate_tags(question: str) -> List[str]:
         response = call_openai(prompt)
         return [tag.strip() for tag in response.split(",") if tag.strip()]
     except Exception as e:
-        logger.error(f"Tag generation failed: {str(e)}")
+        logger.error(f"Tag generation failed: {e}")
         return []
 
 # === AI Self-Grading Tool ===
@@ -123,13 +129,13 @@ def grade_answer(user_answer: str, correct_option: str, explanation: Optional[st
         f"Is it correct? Justify with explanation."
     )
     try:
-        ai_feedback = call_openai(feedback_prompt)
+        feedback = call_openai(feedback_prompt)
     except Exception as e:
-        logger.error(f"Grading feedback failed: {str(e)}")
-        ai_feedback = "Feedback unavailable."
+        logger.error(f"Grading feedback failed: {e}")
+        feedback = "Feedback unavailable."
     return {
         "is_correct": is_correct,
-        "feedback": ai_feedback
+        "feedback": feedback
     }
 
 # === Confidence Evaluator ===
@@ -139,6 +145,7 @@ def estimate_confidence(quiz_block: str) -> float:
         response = call_openai(prompt)
         return float(response)
     except Exception as e:
-        logger.error(f"Confidence estimation failed: {str(e)}")
+        logger.error(f"Confidence estimation failed: {e}")
         return 0.8
+
 '''

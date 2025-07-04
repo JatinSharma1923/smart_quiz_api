@@ -1,10 +1,9 @@
-
 from fastapi import (
     APIRouter, Depends, HTTPException, Query, Body,
     BackgroundTasks, Request
 )
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Dict
 from datetime import datetime
 
 from models import (
@@ -25,7 +24,7 @@ from services.rate_limiter import limiter
 router = APIRouter()
 
 
-# === Create Quiz ===
+# === Create a new quiz ===
 @router.post("/", response_model=QuizOut)
 def create_quiz(quiz_data: QuizCreate, db: Session = Depends(get_db)):
     quiz = Quiz(
@@ -33,7 +32,9 @@ def create_quiz(quiz_data: QuizCreate, db: Session = Depends(get_db)):
         category=quiz_data.topic,
         difficulty=quiz_data.difficulty,
         duration_seconds=len(quiz_data.questions) * 30,
-        start_time=datetime.utcnow()
+        start_time=datetime.utcnow(),
+        end_time=None,
+        scraped_at=None
     )
     db.add(quiz)
     db.commit()
@@ -55,7 +56,7 @@ def create_quiz(quiz_data: QuizCreate, db: Session = Depends(get_db)):
     return quiz
 
 
-# === Get Quiz ===
+# === Retrieve quiz by ID ===
 @router.get("/{quiz_id}", response_model=QuizOut)
 def get_quiz(quiz_id: int, db: Session = Depends(get_db)):
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
@@ -64,19 +65,19 @@ def get_quiz(quiz_id: int, db: Session = Depends(get_db)):
     return quiz
 
 
-# === List Quizzes ===
+# === List all quizzes ===
 @router.get("/", response_model=List[QuizOut])
 def list_quizzes(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return db.query(Quiz).offset(skip).limit(limit).all()
 
 
-# === List User Quizzes ===
+# === List quizzes by user ===
 @router.get("/user/{user_id}", response_model=List[QuizOut])
 def list_user_quizzes(user_id: str, db: Session = Depends(get_db)):
     return db.query(Quiz).filter(Quiz.user_id == user_id).all()
 
 
-# === Update Quiz ===
+# === Update an existing quiz ===
 @router.put("/{quiz_id}", response_model=QuizOut)
 def update_quiz(quiz_id: int, updated_data: QuizCreate, db: Session = Depends(get_db)):
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
@@ -108,8 +109,8 @@ def update_quiz(quiz_id: int, updated_data: QuizCreate, db: Session = Depends(ge
     return quiz
 
 
-# === Delete Quiz ===
-@router.delete("/{quiz_id}", response_model=dict)
+# === Delete a quiz ===
+@router.delete("/{quiz_id}", response_model=Dict)
 def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     if not quiz:
@@ -119,8 +120,8 @@ def delete_quiz(quiz_id: int, db: Session = Depends(get_db)):
     return {"detail": f"Quiz {quiz_id} deleted successfully"}
 
 
-# === Generate AI Quiz (with rate limit) ===
-@router.get("/generate/ai", response_model=dict)
+# === Generate quiz using OpenAI ===
+@router.get("/generate/ai", response_model=Dict)
 async def generate_ai_quiz(
     request: Request,
     topic: str = Query(...),
@@ -136,8 +137,8 @@ async def generate_ai_quiz(
     return {"generated_quiz": ai_response}
 
 
-# === Generate Quiz from URL (with rate limit) ===
-@router.get("/generate/from-url", response_model=dict)
+# === Generate quiz from a URL ===
+@router.get("/generate/from-url", response_model=Dict)
 async def generate_quiz_from_article(
     request: Request,
     url: str = Query(...),
@@ -151,11 +152,11 @@ async def generate_quiz_from_article(
     return quiz_data
 
 
-# === Submit Quiz Answers ===
-@router.post("/{quiz_id}/submit", response_model=List[UserAnswerOut])
+# === Submit answers to a quiz ===
+@router.post("/{quiz_id}/submit", response_model=Dict)
 def submit_quiz_answers(
     quiz_id: int,
-    answers: List[dict] = Body(...),
+    answers: List[Dict] = Body(...),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
@@ -164,6 +165,8 @@ def submit_quiz_answers(
         raise HTTPException(status_code=404, detail="Quiz not found")
 
     results = []
+    total = 0
+    correct = 0
 
     for ans in answers:
         question_id = ans["question_id"]
@@ -174,13 +177,17 @@ def submit_quiz_answers(
         if not question:
             continue
 
+        if selected_answer not in question.options.split("|"):
+            raise HTTPException(status_code=400, detail=f"Invalid answer for question ID {question_id}")
+
         grading = grade_answer(selected_answer, question.correct_answer)
+        is_correct = grading["is_correct"]
 
         user_answer = UserAnswer(
             user_id=user_id,
             question_id=question_id,
             selected_answer=selected_answer,
-            is_correct=grading["is_correct"]
+            is_correct=is_correct
         )
         db.add(user_answer)
 
@@ -189,18 +196,36 @@ def submit_quiz_answers(
             user_id=user_id,
             status="completed",
             started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow()
+            completed_at=datetime.utcnow(),
+            error_message=None
         )
         db.add(grading_task)
 
         db.commit()
         db.refresh(user_answer)
+
         results.append(user_answer)
+        total += 1
+        if is_correct:
+            correct += 1
 
-    return results
+    # Optionally mark quiz completed
+    quiz.end_time = datetime.utcnow()
+    db.commit()
+
+    score_pct = round((correct / total) * 100, 2) if total > 0 else 0
+
+    return {
+        "summary": {
+            "total": total,
+            "correct": correct,
+            "score_percentage": score_pct
+        },
+        "answers": results
+    }
 
 
-# === Submit Feedback ===
+# === Submit feedback on a quiz ===
 @router.post("/{quiz_id}/feedback", response_model=FeedbackOut)
 def submit_feedback(
     quiz_id: int,
@@ -224,8 +249,8 @@ def submit_feedback(
     return feedback
 
 
-# === AI Explanation for a Quiz ===
-@router.get("/{quiz_id}/explain", response_model=dict)
+# === Get AI-generated explanation ===
+@router.get("/{quiz_id}/explain", response_model=Dict)
 def explain_quiz(quiz_id: int, db: Session = Depends(get_db)):
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     if not quiz or not quiz.questions:
@@ -236,8 +261,8 @@ def explain_quiz(quiz_id: int, db: Session = Depends(get_db)):
     return {"explanation": explanation}
 
 
-# === AI Confidence Score ===
-@router.get("/{quiz_id}/confidence", response_model=dict)
+# === Get AI-estimated confidence score ===
+@router.get("/{quiz_id}/confidence", response_model=Dict)
 def confidence_score(quiz_id: int, db: Session = Depends(get_db)):
     quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
     if not quiz or not quiz.questions:

@@ -14,7 +14,10 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+    username: str
     full_name: str
+    firebase_uid: Optional[str] = None
+    profile_picture: Optional[str] = None
     class Config:
         orm_mode = True
 

@@ -12,6 +12,17 @@ from tenacity import retry, wait_random, stop_after_attempt
 import openai
 from typing import Literal
 
+
+# === Custom Exceptions ===
+class PromptTemplateNotFound(Exception):
+    """Raised when a quiz type template file is missing."""
+    pass
+
+class OpenAIResponseError(Exception):
+    """Raised when OpenAI returns an invalid or incomplete response."""
+    pass
+
+
 # === ENV and Setup ===
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -77,6 +88,10 @@ def call_openai(prompt: str, model: str = "gpt-3.5-turbo") -> str:
             temperature=0.7,
         )
         result = response.choices[0].message.content.strip()
+        # LOGGING USAGE HERE
+        usage = response.get("usage", {})
+        logger.info(f"OpenAI API Usage — Prompt Tokens: {usage.get('prompt_tokens')}, Completion Tokens: {usage.get('completion_tokens')}, Total Tokens: {usage.get('total_tokens')}")
+
         set_cached_response(prompt, result)
         return result
     except Exception as e:
@@ -129,7 +144,7 @@ def estimate_confidence(quiz_block: str) -> float:
     prompt = f"Rate the confidence in this quiz block on a scale from 0.0 to 1.0:\n{quiz_block}"
     try:
         response = call_openai(prompt)
-        return float(response)
+        return min(max(float(response), 0.0), 1.0)
     except Exception as e:
         logger.error(f"Confidence estimation failed: {e}")
         return 0.8

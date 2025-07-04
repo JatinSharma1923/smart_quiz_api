@@ -14,6 +14,13 @@ import redis
 import os
 import openai
 from dotenv import load_dotenv
+from services.firebase_auth import get_current_user
+
+def verify_admin_user(user: User = Depends(get_current_user)):
+    if not user.is_admin:  # you'd need to add this to model
+        raise HTTPException(status_code=403, detail="Admins only")
+    return user
+
 
 # === Load env variables ===
 load_dotenv()

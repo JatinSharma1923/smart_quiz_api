@@ -68,15 +68,29 @@ uvicorn main:app --reload
 
 ```
 smart_quiz_api/
-├── routers/        # FastAPI route controllers
-├── services/       # Business logic (OpenAI, scraping, quiz logic)
-├── templates/      # Prompt templates
-├── auth/           # Firebase Auth integration
-├── models.py       # SQLAlchemy models
-├── schemas.py      # Pydantic schemas
-├── database.py     # DB session & setup
-├── main.py         # FastAPI app entry point
-└── .env.example    # Sample config file
+   ├─ __init__.py
+   ├─ main.py
+   ├─ database.py
+   ├─ models.py
+   ├─ schema.py
+   ├─ routers/
+   │   ├─ __init__.py
+   │   ├─ admin_router.py
+   │   ├─ quiz_router.py
+   │   └─ user_router.py
+   ├─ services/
+   │   ├─ __init__.py
+   │   ├─ firebase_auth.py
+   │   ├─ openai_service.py
+   │   └─ scraper_service.py
+   ├─ templates/        # To be implemented
+   │   ├─ image.txt
+   │   ├─ mcq.txt
+   │   ├─ scraper_prompt.txt
+   │   └─ tf.txt
+   └─ utils/            # To be implemented
+       ├─ decorators.py
+       └─ text_utils.py
 ```
 
 

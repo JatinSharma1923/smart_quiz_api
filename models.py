@@ -24,7 +24,8 @@ class User(Base, TimestampMixin):
     average_score = Column(Float, default=0.0)
     streak = Column(Integer, default=0)
     is_deleted = Column(Boolean, default=False)
-
+    firebase_uid = Column(String, unique=True, nullable=True)
+    profile_picture = Column(String, nullable=True) 
     quizzes = relationship("Quiz", back_populates="user")
     badges = relationship("UserBadge", back_populates="user")
     answers = relationship("UserAnswer", back_populates="user")

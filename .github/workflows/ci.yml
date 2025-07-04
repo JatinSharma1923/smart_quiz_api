@@ -1,12 +1,59 @@
-name: CI
-on: [push]
+name: 🚀 Smart Quiz CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
   build:
+    name: 🧪 Test & Lint
     runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: sqlite:///./test.db
+      OPENAI_API_KEY: dummy-openai-key
+      REDIS_URL: redis://localhost:6379/0
+      ADMIN_API_KEY: test-admin-key
+      SCRAPER_MODEL: gpt-3.5-turbo
+
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - run: echo 'Add test script here'
+
+      - name: 🔧 Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install alembic
+
+      - name: 🛠 Alembic check (schema up-to-date)
+        run: |
+          source venv/bin/activate
+          alembic upgrade head
+          alembic revision --autogenerate -m "check" --head head --splice --version-path ./migrations/versions --stdout | tee check.sql
+          ! grep "op." check.sql || (echo "❌ Unapplied model changes detected." && exit 1)
+
+      - name: 🧼 Lint with flake8
+        run: |
+          source venv/bin/activate
+          pip install flake8
+          flake8 . --exclude=migrations --max-line-length=120
+
+      - name: ✅ (Optional) Run tests
+        run: |
+          echo "✅ No test suite yet — Add FastAPI TestClient tests here"

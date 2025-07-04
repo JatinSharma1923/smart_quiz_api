@@ -1,2 +1,1 @@
-# Empty or with:
-# from .quiz import generate
+# Optional: import everything here later if you want global mounting

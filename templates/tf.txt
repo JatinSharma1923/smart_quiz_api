@@ -1,1 +1,21 @@
 
+You are an expert quiz-maker.
+
+From the following passage, produce {num_statements} True/False statements that test understanding of key facts:
+
+{content}
+
+Requirements:
+- Each statement must be a single sentence.
+- Mark each with “True” or “False”.
+- Provide a one-sentence rationale for each answer.
+
+Format your output as JSON:
+[
+  {
+    "statement": "...",
+    "truth": "True",
+    "rationale": "..."
+  },
+  ...
+]

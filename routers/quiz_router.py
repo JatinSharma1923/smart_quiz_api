@@ -20,14 +20,17 @@ from services.openai_service import (
 )
 from services.scraper_service import generate_quiz_from_url
 from services.rate_limiter import limiter
+from services.firebase_auth import get_current_user
+
 
 router = APIRouter()
 
 
 # === Create a new quiz ===
 @router.post("/", response_model=QuizOut)
-def create_quiz(quiz_data: QuizCreate, db: Session = Depends(get_db)):
+def create_quiz(quiz_data: QuizCreate, db: Session = Depends(get_db),current_user: User = Depends(get_current_user)):
     quiz = Quiz(
+        user_id=current_user.id,
         title=quiz_data.title,
         category=quiz_data.topic,
         difficulty=quiz_data.difficulty,
@@ -153,9 +156,10 @@ async def generate_quiz_from_article(
 
 
 # === Submit answers to a quiz ===
-@router.post("/{quiz_id}/submit", response_model=Dict)
+@router.post("/{quiz_id}/submit", response_model=Dict,current_user: User = Depends(get_current_user))
 def submit_quiz_answers(
     quiz_id: int,
+    user_id=current_user.id,
     answers: List[Dict] = Body(...),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
@@ -226,9 +230,10 @@ def submit_quiz_answers(
 
 
 # === Submit feedback on a quiz ===
-@router.post("/{quiz_id}/feedback", response_model=FeedbackOut)
+@router.post("/{quiz_id}/feedback", response_model=FeedbackOut,current_user: User = Depends(get_current_user))
 def submit_feedback(
     quiz_id: int,
+    user_id=current_user.id,
     feedback_data: FeedbackCreate,
     db: Session = Depends(get_db)
 ):

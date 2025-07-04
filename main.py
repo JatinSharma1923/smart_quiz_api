@@ -1,20 +1,4 @@
 
-
-from fastapi import FastAPI
-from routers import quiz, user
-
-app = FastAPI()
-
-app.include_router(quiz.router, prefix="/quiz", tags=["Quiz"])
-app.include_router(user.router, prefix="/user", tags=["User"])
-
-@app.get("/")
-def root():
-    return {"message": "Welcome to Smart Quiz API"}
-
-
-
-'''
 from smart_quiz_api.services import scrape_and_generate_quiz
 
 from fastapi import FastAPI, Request, Depends, BackgroundTasks, HTTPException
@@ -31,10 +15,16 @@ import hashlib
 import jinja2
 from collections import defaultdict
 
-from routers import quiz, user
+from routers import quiz_router, user_router,admin_router
 from services.rate_limiter import limiter
 from services.cache import model_cache
 from services.analytics import log_quiz_event
+
+# Include Routers (quiz + user)
+app.include_router(quiz_router.router, prefix="/quiz", tags=["Quiz"])
+app.include_router(user_router.router, prefix="/user", tags=["User"])
+app.include_router(admin_router.router, prefix="/admin", tags=["Admin"])
+
 
 # Logging Setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -90,9 +80,8 @@ async def add_exception_logging(request: Request, call_next):
         logger.exception(f"Unhandled error: {str(e)}")
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-# Include Routers (quiz + user)
-app.include_router(quiz.router, prefix="/quiz", tags=["Quiz"])
-app.include_router(user.router, prefix="/user", tags=["User"])
+
+
 
 # Health Check Route
 @app.get("/")

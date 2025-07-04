@@ -29,3 +29,13 @@ def get_current_user(request: Request) -> dict:
         }
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Firebase token")
+
+'''🔐 Required Setup
+
+    Go to Firebase Console → Project Settings → Service Accounts
+
+    Click “Generate New Private Key” → Save it as firebase_service_account.json in your project
+
+    Add this to .env:
+
+FIREBASE_CRED_PATH=./firebase_service_account.json'''

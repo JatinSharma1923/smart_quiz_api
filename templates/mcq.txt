@@ -1,1 +1,26 @@
+You are an expert quiz-maker and educator.
 
+Generate {num_questions} high-quality multiple-choice questions based on the following educational content:
+
+---
+{content}
+---
+
+Requirements:
+1. Topic: "{topic}" (stay focused on this)
+2. Each question must have:
+   - A concise, meaningful question (no trivia or ambiguity)
+   - Four options labeled A, B, C, D
+   - Exactly one correct answer
+   - A short explanation for why the correct answer is correct (don't explain incorrect ones)
+
+Format your output as JSON:
+[
+  {
+    "question": "...",
+    "options": ["A: ...", "B: ...", "C: ...", "D: ..."],
+    "answer": "B",
+    "explanation": "..."
+  },
+  ...
+]

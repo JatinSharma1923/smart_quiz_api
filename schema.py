@@ -108,4 +108,77 @@ class LogOut(BaseModel):
     timestamp: datetime
     class Config:
         orm_mode = True
+# === New Additions to schema.py ===
+
+class UserAnswerOut(BaseModel):
+    id: int
+    question_id: int
+    selected_answer: str
+    is_correct: bool
+    class Config:
+        orm_mode = True
+
+class SessionLogOut(BaseModel):
+    id: int
+    login_time: datetime
+    logout_time: Optional[datetime]
+    ip_address: str
+    device_info: str
+    class Config:
+        orm_mode = True
+
+class WebSocketSessionOut(BaseModel):
+    id: int
+    connection_time: datetime
+    disconnect_time: Optional[datetime]
+    client_ip: str
+    class Config:
+        orm_mode = True
+
+class GradingTaskOut(BaseModel):
+    id: int
+    quiz_id: int
+    user_id: str
+    status: str
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    error_message: Optional[str]
+    class Config:
+        orm_mode = True
+
+class PromptTemplateOut(BaseModel):
+    id: int
+    name: str
+    context: str
+    template_text: str
+    created_by: str
+    created_at: datetime
+    class Config:
+        orm_mode = True
+
+class PromptCacheOut(BaseModel):
+    id: int
+    prompt_hash: str
+    response_text: str
+    created_at: datetime
+    class Config:
+        orm_mode = True
+
+class ErrorLogOut(BaseModel):
+    id: int
+    error_type: str
+    message: str
+    stack_trace: str
+    occurred_at: datetime
+    class Config:
+        orm_mode = True
+
+class HealthCheckLogOut(BaseModel):
+    id: int
+    service: str
+    status: str
+    checked_at: datetime
+    response_time_ms: float
+    class Config:
+        orm_mode = True
 

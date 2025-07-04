@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
+from services.firebase_auth import get_current_user
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime

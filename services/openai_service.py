@@ -98,6 +98,15 @@ def call_openai(prompt: str, model: str = "gpt-3.5-turbo") -> str:
         logger.exception("OpenAI call failed")
         raise
 
+# ✅ Safe Wrapper for Exception Handling
+def safe_openai_chat(prompt: str, model: str = "gpt-3.5-turbo", max_tokens=700, temperature=0.7) -> str:
+    try:
+        return call_openai(prompt, model=model)
+    except openai.error.OpenAIError as oe:
+        logger.error(f"OpenAI API error: {oe}")
+        raise OpenAIResponseError("OpenAI returned an unexpected error.")
+
+
 # === Topic Classifier ===
 def classify_topic(content: str) -> str:
     prompt = f"Classify the following content into a topic (e.g., Science, History, Tech, etc):\n\n{content[:1000]}"

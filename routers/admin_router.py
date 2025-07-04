@@ -43,7 +43,7 @@ router = APIRouter(
 )
 
 # === System Stats ===
-@router.get("/stats", response_model=dict)
+@router.get("/stats", response_model=dict,dependencies=[Depends(verify_admin_user)])
 def get_stats(db: Session = Depends(get_db)):
     return {
         "total_users": db.query(User).count(),

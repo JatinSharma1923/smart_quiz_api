@@ -1,1 +1,26 @@
 
+You are a visual recognition and education expert.
+
+Given the following image URL: {image_url}
+and the topic context: "{topic}",
+
+Generate {num_questions} multiple-choice questions that test visual understanding based on the image content.
+
+Each question must include:
+1. A clear and relevant question about the image (e.g., what is shown, inferred, or missing).
+2. Four labeled options (A, B, C, D) — concise and plausible.
+3. One correct answer (labeled A/B/C/D).
+4. A brief explanation to justify the answer.
+
+Output format (JSON):
+[
+  {
+    "question": "...",
+    "options": ["A: ...", "B: ...", "C: ...", "D: ..."],
+    "answer": "B",
+    "explanation": "..."
+  },
+  ...
+]
+
+Image URL: {image_url}

@@ -1,9 +1,10 @@
-# templates/scraper_prompt.txt
-
 Task: Scrape the webpage at {url}, extract its textual content, then generate a quiz.
 
-Step 1: Fetch and clean HTML from {url}.  
-Step 2: Extract visible text (headings, paragraphs, lists).  
-Step 3: Pass the cleaned text into your MCQ/TF template to produce {quiz_type} questions.
+Instructions:
+1. Fetch and clean all HTML from the provided URL.
+2. Extract visible text including headings, paragraphs, and lists.
+3. Based on the cleaned text, generate a quiz using the {quiz_type} format.
 
-Return only the final quiz JSON—no commentary.  
+Quiz types supported: "mcq", "true_false", or "mixed".
+Use the appropriate JSON structure from the templates.
+Return only the final quiz JSON output — no commentary or explanation.
